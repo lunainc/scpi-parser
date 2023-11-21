@@ -63,9 +63,11 @@ static scpi_expr_result_t numericRange(lex_state_t * state, scpi_bool_t * isRang
             *isRange = FALSE;
             return SCPI_EXPR_OK;
         }
+    } else if(scpiLex_SpecificCharacter(state, valueFrom, ')')) {
+        return SCPI_EXPR_NO_MORE;
+    } else {
+        return SCPI_EXPR_ERROR;
     }
-
-    return SCPI_EXPR_NO_MORE;
 }
 
 /**
