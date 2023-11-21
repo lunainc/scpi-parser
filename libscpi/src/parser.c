@@ -273,7 +273,7 @@ void SCPI_Init(scpi_t * context,
         const scpi_unit_def_t * units,
         const char * idn1, const char * idn2, const char * idn3, const char * idn4,
         char * input_buffer, size_t input_buffer_length,
-        scpi_error_t * error_queue_data, int16_t error_queue_size) {
+        const scpi_error_def_t * user_error_def_list, uint16_t user_error_def_list_len, scpi_error_t * error_queue_data, int16_t error_queue_size) {
     memset(context, 0, sizeof (*context));
     context->cmdlist = commands;
     context->interface = interface;
@@ -285,6 +285,8 @@ void SCPI_Init(scpi_t * context,
     context->buffer.data = input_buffer;
     context->buffer.length = input_buffer_length;
     context->buffer.position = 0;
+    context->user.error_info_list.ptr = user_error_def_list;
+    context->user.error_info_list.len = user_error_def_list_len;
     SCPI_ErrorInit(context, error_queue_data, error_queue_size);
 }
 
@@ -558,7 +560,7 @@ size_t SCPI_ResultError(scpi_t * context, scpi_error_t * error) {
     size_t len[SCPIDEFINE_DESCRIPTION_MAX_PARTS];
     size_t i;
 
-    data[0] = SCPI_ErrorTranslate(error->error_code);
+    data[0] = SCPI_ErrorTranslate(context, error->error_code);
     len[0] = strlen(data[0]);
 
 #if USE_DEVICE_DEPENDENT_ERROR_INFORMATION

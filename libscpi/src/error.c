@@ -215,23 +215,34 @@ void SCPI_ErrorPush(scpi_t * context, int16_t err) {
  * @param err - error number
  * @return Error string representation
  */
-const char * SCPI_ErrorTranslate(int16_t err) {
+const char * SCPI_ErrorTranslate(scpi_t * context, int16_t err) {
     switch (err) {
 #define X(def, val, str) case def: return str;
-#if USE_FULL_ERROR_LIST
-#define XE X
-#else
-#define XE(def, val, str)
-#endif
-        LIST_OF_ERRORS
-
-#if USE_USER_ERROR_LIST
-        LIST_OF_USER_ERRORS
-#endif
+        MINIMAL_LIST_OF_ERRORS
 #undef X
-#undef XE
-        default: return "Unknown error";
+        default: break;
     }
+
+    if(context->user.error_info_list.ptr != NULL) {
+        uint16_t m;
+        int32_t l = 0;
+        int32_t r = ((int32_t) context->user.error_info_list.len)-1;
+        const scpi_error_def_t * err_def;
+        while (l <= r) {
+            m = (l + r) >> 1;
+            err_def = context->user.error_info_list.ptr+m;
+
+            if (err < err_def->code) {         // If the target is less than the middle entry, ignore the left half.
+                l = m + 1;
+            } else if (err > err_def->code){   // If the target is greater than the middle entry, ignore the right half.
+                r = m - 1;
+            } else {                            // Check if the target is at the middle entry
+                break;
+            }
+        }
+
+        return (l <= r) ? err_def->msg : "Unknown error";
+    }
+
+    return "Unknown error";
 }
-
-

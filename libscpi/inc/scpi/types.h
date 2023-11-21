@@ -421,6 +421,12 @@ extern "C" {
         scpi_command_callback_t reset;
     };
 
+    struct _scpi_error_def_t {
+        const int16_t code;
+        const char * msg;
+    };
+    typedef struct _scpi_error_def_t scpi_error_def_t;
+
     struct _scpi_t {
         const scpi_command_t * cmdlist;
         scpi_buffer_t buffer;
@@ -434,6 +440,12 @@ extern "C" {
 #if USE_DEVICE_DEPENDENT_ERROR_INFORMATION && !USE_MEMORY_ALLOCATION_FREE
         scpi_error_info_heap_t error_info_heap;
 #endif
+        struct {
+            struct {
+                const scpi_error_def_t * ptr;
+                uint16_t len;
+            } error_info_list;
+        } user;
         scpi_reg_val_t registers[SCPI_REG_COUNT];
         const scpi_unit_def_t * units;
         void * user_context;

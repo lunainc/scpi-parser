@@ -50,7 +50,7 @@ extern "C" {
             const scpi_unit_def_t * units,
             const char * idn1, const char * idn2, const char * idn3, const char * idn4,
             char * input_buffer, size_t input_buffer_length,
-            scpi_error_t * error_queue_data, int16_t error_queue_size);
+            const scpi_error_def_t * user_error_def_list, uint16_t user_error_def_list_len, scpi_error_t * error_queue_data, int16_t error_queue_size);
 #if USE_DEVICE_DEPENDENT_ERROR_INFORMATION && !USE_MEMORY_ALLOCATION_FREE
     void SCPI_InitHeap(scpi_t * context, char * error_info_heap, size_t error_info_heap_length);
 #endif
