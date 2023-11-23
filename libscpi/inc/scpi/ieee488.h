@@ -79,10 +79,19 @@ extern "C" {
 #define ESR_PON 0x80    /* Power On */
 
 
-    scpi_reg_val_t SCPI_RegGet(scpi_t * context, scpi_reg_name_t name);
-    void SCPI_RegSet(scpi_t * context, scpi_reg_name_t name, scpi_reg_val_t val);
-    void SCPI_RegSetBits(scpi_t * context, scpi_reg_name_t name, scpi_reg_val_t bits);
-    void SCPI_RegClearBits(scpi_t * context, scpi_reg_name_t name, scpi_reg_val_t bits);
+#define CUSTOM_REG_GROUP_ENTRY(DATA, GROUP, PTR_PRESET, NTR_PRESET, ENAB_PRESET, PARENT_REG, PARENT_BIT)\
+{ \
+    .data = DATA + (GROUP - SCPI_LIB_REG_GROUP_COUNT), \
+    .preset = { .ptr = PTR_PRESET, .ntr = NTR_PRESET, .enab = ENAB_PRESET },\
+    .parent = { .reg = PARENT_REG, .bit = PARENT_BIT }\
+},
+
+    extern const scpi_register_group_t library_register_groups[];
+
+    scpi_reg_val_t SCPI_RegGet(scpi_t * context, int16_t group, uint16_t subreg);
+    void SCPI_RegSet(scpi_t * context, int16_t group, uint16_t subreg, scpi_reg_val_t val);
+    void SCPI_RegSetBits(scpi_t * context, int16_t group, uint16_t subreg, scpi_reg_val_t bits);
+    void SCPI_RegClearBits(scpi_t * context, int16_t group, uint16_t subreg, scpi_reg_val_t bits);
 
     void SCPI_EventClear(scpi_t * context);
 

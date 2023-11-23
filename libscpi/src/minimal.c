@@ -106,7 +106,7 @@ scpi_result_t SCPI_SystemErrorCountQ(scpi_t * context) {
  */
 scpi_result_t SCPI_StatusQuestionableConditionQ(scpi_t * context) {
     /* return value */
-    SCPI_ResultInt32(context, SCPI_RegGet(context, SCPI_REG_QUESC));
+    SCPI_ResultInt32(context, SCPI_RegGet(context, SCPI_REG_QUES, SCPI_SUBREG_COND));
 
     return SCPI_RES_OK;
 }
@@ -118,10 +118,10 @@ scpi_result_t SCPI_StatusQuestionableConditionQ(scpi_t * context) {
  */
 scpi_result_t SCPI_StatusQuestionableEventQ(scpi_t * context) {
     /* return value */
-    SCPI_ResultInt32(context, SCPI_RegGet(context, SCPI_REG_QUES));
+    SCPI_ResultInt32(context, SCPI_RegGet(context, SCPI_REG_QUES, SCPI_SUBREG_EVENT));
 
     /* clear register */
-    SCPI_RegSet(context, SCPI_REG_QUES, 0);
+    SCPI_RegSet(context, SCPI_REG_QUES, SCPI_SUBREG_EVENT, 0);
 
     return SCPI_RES_OK;
 }
@@ -133,7 +133,7 @@ scpi_result_t SCPI_StatusQuestionableEventQ(scpi_t * context) {
  */
 scpi_result_t SCPI_StatusQuestionableEnableQ(scpi_t * context) {
     /* return value */
-    SCPI_ResultInt32(context, SCPI_RegGet(context, SCPI_REG_QUESE));
+    SCPI_ResultInt32(context, SCPI_RegGet(context, SCPI_REG_QUES, SCPI_SUBREG_ENAB));
 
     return SCPI_RES_OK;
 }
@@ -146,7 +146,7 @@ scpi_result_t SCPI_StatusQuestionableEnableQ(scpi_t * context) {
 scpi_result_t SCPI_StatusQuestionableEnable(scpi_t * context) {
     int32_t new_QUESE;
     if (SCPI_ParamInt32(context, &new_QUESE, TRUE)) {
-        SCPI_RegSet(context, SCPI_REG_QUESE, (scpi_reg_val_t) new_QUESE);
+        SCPI_RegSet(context, SCPI_REG_QUES, SCPI_SUBREG_ENAB, (scpi_reg_val_t) new_QUESE);
     }
     return SCPI_RES_OK;
 }
@@ -158,7 +158,7 @@ scpi_result_t SCPI_StatusQuestionableEnable(scpi_t * context) {
  */
 scpi_result_t SCPI_StatusOperationConditionQ(scpi_t * context) {
     /* return value */
-    SCPI_ResultInt32(context, SCPI_RegGet(context, SCPI_REG_OPERC));
+    SCPI_ResultInt32(context, SCPI_RegGet(context, SCPI_REG_OPER, SCPI_SUBREG_COND));
 
     return SCPI_RES_OK;
 }
@@ -170,10 +170,10 @@ scpi_result_t SCPI_StatusOperationConditionQ(scpi_t * context) {
  */
 scpi_result_t SCPI_StatusOperationEventQ(scpi_t * context) {
     /* return value */
-    SCPI_ResultInt32(context, SCPI_RegGet(context, SCPI_REG_OPER));
+    SCPI_ResultInt32(context, SCPI_RegGet(context, SCPI_REG_OPER, SCPI_SUBREG_EVENT));
 
     /* clear register */
-    SCPI_RegSet(context, SCPI_REG_OPER, 0);
+    SCPI_RegSet(context, SCPI_REG_OPER, SCPI_SUBREG_EVENT, 0);
 
     return SCPI_RES_OK;
 }
@@ -185,7 +185,7 @@ scpi_result_t SCPI_StatusOperationEventQ(scpi_t * context) {
  */
  scpi_result_t SCPI_StatusOperationEnableQ(scpi_t * context) {
     /* return value */
-    SCPI_ResultInt32(context, SCPI_RegGet(context, SCPI_REG_OPERE));
+    SCPI_ResultInt32(context, SCPI_RegGet(context, SCPI_REG_OPER, SCPI_SUBREG_ENAB));
 
     return SCPI_RES_OK;
 }
@@ -198,7 +198,7 @@ scpi_result_t SCPI_StatusOperationEventQ(scpi_t * context) {
 scpi_result_t SCPI_StatusOperationEnable(scpi_t * context) {
     int32_t new_OPERE;
     if (SCPI_ParamInt32(context, &new_OPERE, TRUE)) {
-        SCPI_RegSet(context, SCPI_REG_OPERE, (scpi_reg_val_t) new_OPERE);
+        SCPI_RegSet(context, SCPI_REG_OPER, SCPI_SUBREG_ENAB, (scpi_reg_val_t) new_OPERE);
     }
     return SCPI_RES_OK;
 }
@@ -210,6 +210,21 @@ scpi_result_t SCPI_StatusOperationEnable(scpi_t * context) {
  */
 scpi_result_t SCPI_StatusPreset(scpi_t * context) {
     /* clear STATUS:... */
-    SCPI_RegSet(context, SCPI_REG_QUES, 0);
+    int i;
+    const scpi_register_group_t * reg_group;
+    for(i=0; i < SCPI_LIB_REG_GROUP_COUNT; i++) {
+        reg_group = library_register_groups + i;
+        reg_group->data->enab = reg_group->preset.enab;
+        reg_group->data->ntr = reg_group->preset.ntr;
+        reg_group->data->ptr = reg_group->preset.ptr;
+    }
+
+    for(i=0; i < context->user.register_groups.len; i++) {
+        reg_group = context->user.register_groups.ptr + i;
+        reg_group->data->enab = reg_group->preset.enab;
+        reg_group->data->ntr = reg_group->preset.ntr;
+        reg_group->data->ptr = reg_group->preset.ptr;
+    }
+
     return SCPI_RES_OK;
 }

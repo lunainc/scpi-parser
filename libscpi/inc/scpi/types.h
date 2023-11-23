@@ -65,33 +65,33 @@ extern "C" {
     typedef bool scpi_bool_t;
     /* typedef enum { FALSE = 0, TRUE } scpi_bool_t; */
 
-    /* IEEE 488.2 registers */
-    enum _scpi_reg_name_t {
-        SCPI_REG_STB = 0, /* Status Byte */
-        SCPI_REG_SRE, /* Service Request Enable Register */
-        SCPI_REG_ESR, /* Standard Event Status Register (ESR, SESR) */
-        SCPI_REG_ESE, /* Event Status Enable Register */
+    /* IEEE 488.2 registers
+     *
+     * This library uses the 'register_group_t' type to implement a SCPI 16-bit status register.
+     * This type is also suitable for describing the Standard Event Status Register, even though it
+     * has no use for the condition and transition sub-registers.
+     *
+     * However, the Status Byte Register and Service Request Enable Register do not use the
+     * 'register_group_t' type due to the fact that both registers can be fully described by
+     * a single 8-bit integer value. As such, both the Status Byte Register and Service Request
+     * Enable Register are assigned negative enumeration values to distinguish them from the registers
+     * that can be described by the 'register_group_t' type.
+     *
+     * Device-specific status registers group enum values should always start with the value of
+     * SCPI_REG_LIB_COUNT in order to avoid collisions with the library-defined register group enum
+     * values and free of discontinuous values so that the library can properly handle the
+     * device-specific status registers alongside the library defined registers.
+     */
+    enum _scpi_lib_reg_group_t {
+        SCPI_REG_NONE = -3, /* A value for no register */
+        SCPI_REG_SRE = -2, /* Service Request Enable Register */
+        SCPI_REG_STB = -1, /* Status Byte */
+        SCPI_REG_ESR = 0, /* Standard Event Status Register (ESR, SESR) */
         SCPI_REG_OPER, /* OPERation Status Register */
-        SCPI_REG_OPERE, /* OPERation Status Enable Register */
-        SCPI_REG_OPERC, /* OPERation Status Condition Register */
         SCPI_REG_QUES, /* QUEStionable status register */
-        SCPI_REG_QUESE, /* QUEStionable status Enable Register */
-        SCPI_REG_QUESC, /* QUEStionable status Condition Register */
-
-#if USE_CUSTOM_REGISTERS
-#ifndef USER_REGISTERS
-#error "No user registers defined"
-#else
-        USER_REGISTERS
-#endif
-#endif
-
-        /* number of registers */
-        SCPI_REG_COUNT,
-        /* last definition - a value for no register */
-        SCPI_REG_NONE
+        SCPI_LIB_REG_GROUP_COUNT /* Number of 'register_group_t' registers defined by the library */
     };
-    typedef enum _scpi_reg_name_t scpi_reg_name_t;
+    typedef enum _scpi_lib_reg_group_t scpi_lib_reg_group_t;
 
     enum _scpi_ctrl_name_t {
         SCPI_CTRL_SRQ = 1, /* service request */
@@ -115,52 +115,73 @@ extern "C" {
 
     typedef uint16_t scpi_reg_val_t;
 
-    enum _scpi_reg_class_t {
-        SCPI_REG_CLASS_STB = 0,
-        SCPI_REG_CLASS_SRE,
-        SCPI_REG_CLASS_EVEN,
-        SCPI_REG_CLASS_ENAB,
-        SCPI_REG_CLASS_COND,
-        SCPI_REG_CLASS_NTR,
-        SCPI_REG_CLASS_PTR,
+    enum _scpi_subreg_t {
+        SCPI_SUBREG_COND = 0,
+        SCPI_SUBREG_PTR,
+        SCPI_SUBREG_NTR,
+        SCPI_SUBREG_EVENT,
+        SCPI_SUBREG_ENAB
     };
-    typedef enum _scpi_reg_class_t scpi_reg_class_t;
+    typedef enum _scpi_subreg_t scpi_subreg_t;
 
-    enum _scpi_reg_group_t {
-        SCPI_REG_GROUP_STB = 0,
-        SCPI_REG_GROUP_ESR,
-        SCPI_REG_GROUP_OPER,
-        SCPI_REG_GROUP_QUES,
-
-#if USE_CUSTOM_REGISTERS
-#ifndef USER_REGISTER_GROUPS
-#error "No user register groups defined"
-#else
-        USER_REGISTER_GROUPS
-#endif
-#endif
-
-        /* last definition - number of register groups */
-        SCPI_REG_GROUP_COUNT
+    struct _scpi_subregister_data_t{
+        scpi_reg_val_t cond;
+        scpi_reg_val_t ptr;
+        scpi_reg_val_t ntr;
+        scpi_reg_val_t event;
+        scpi_reg_val_t enab;
     };
-    typedef enum _scpi_reg_group_t scpi_reg_group_t;
+    typedef struct _scpi_subregister_data_t scpi_subregister_data_t;
 
-    struct _scpi_reg_info_t {
-        scpi_reg_class_t type;
-        scpi_reg_group_t group;
+    struct _scpi_register_group_t {
+        scpi_subregister_data_t * const data;
+        struct {
+            const scpi_reg_val_t ptr;
+            const scpi_reg_val_t ntr;
+            const scpi_reg_val_t enab;
+        } preset;
+        struct {
+            const int16_t reg;
+            const uint8_t bit;
+        } parent;
     };
-    typedef struct _scpi_reg_info_t scpi_reg_info_t;
+    typedef struct _scpi_register_group_t scpi_register_group_t;
 
-    struct _scpi_reg_group_info_t {
-        scpi_reg_name_t event;
-        scpi_reg_name_t enable;
-        scpi_reg_name_t condition;
-        scpi_reg_name_t ptfilt;
-        scpi_reg_name_t ntfilt;
-        scpi_reg_name_t parent_reg;
-        scpi_reg_val_t parent_bit;
-    };
-    typedef struct _scpi_reg_group_info_t scpi_reg_group_info_t;
+//    enum _scpi_reg_group_t {
+//        SCPI_REG_GROUP_STB = 0,
+//        SCPI_REG_GROUP_ESR,
+//        SCPI_REG_GROUP_OPER,
+//        SCPI_REG_GROUP_QUES,
+//
+//#if USE_CUSTOM_REGISTERS
+//#ifndef USER_REGISTER_GROUPS
+//#error "No user register groups defined"
+//#else
+//        USER_REGISTER_GROUPS
+//#endif
+//#endif
+//
+//        /* last definition - number of register groups */
+//        SCPI_REG_GROUP_COUNT
+//    };
+//    typedef enum _scpi_reg_group_t scpi_reg_group_t;
+
+//    struct _scpi_reg_info_t {
+//        scpi_reg_class_t type;
+//        scpi_reg_group_t group;
+//    };
+//    typedef struct _scpi_reg_info_t scpi_reg_info_t;
+
+//    struct _scpi_reg_group_info_t {
+//        scpi_reg_name_t event;
+//        scpi_reg_name_t enable;
+//        scpi_reg_name_t condition;
+//        scpi_reg_name_t ptfilt;
+//        scpi_reg_name_t ntfilt;
+//        scpi_reg_name_t parent_reg;
+//        scpi_reg_val_t parent_bit;
+//    };
+//    typedef struct _scpi_reg_group_info_t scpi_reg_group_info_t;
 
     /* scpi commands */
     enum _scpi_result_t {
@@ -445,8 +466,11 @@ extern "C" {
                 const scpi_error_def_t * ptr;
                 uint16_t len;
             } error_info_list;
+            struct {
+                const scpi_register_group_t * ptr;
+                uint16_t len;
+            } register_groups;
         } user;
-        scpi_reg_val_t registers[SCPI_REG_COUNT];
         const scpi_unit_def_t * units;
         void * user_context;
         scpi_parser_state_t parser_state;

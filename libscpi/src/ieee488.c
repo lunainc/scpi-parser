@@ -42,87 +42,77 @@
 
 #include <stdio.h>
 
-static const scpi_reg_info_t scpi_reg_details[SCPI_REG_COUNT] = {
-    { SCPI_REG_CLASS_STB, SCPI_REG_GROUP_STB },
-    { SCPI_REG_CLASS_SRE, SCPI_REG_GROUP_STB },
-    { SCPI_REG_CLASS_EVEN, SCPI_REG_GROUP_ESR },
-    { SCPI_REG_CLASS_ENAB, SCPI_REG_GROUP_ESR },
-    { SCPI_REG_CLASS_EVEN, SCPI_REG_GROUP_OPER },
-    { SCPI_REG_CLASS_ENAB, SCPI_REG_GROUP_OPER },
-    { SCPI_REG_CLASS_COND, SCPI_REG_GROUP_OPER },
-    { SCPI_REG_CLASS_EVEN, SCPI_REG_GROUP_QUES },
-    { SCPI_REG_CLASS_ENAB, SCPI_REG_GROUP_QUES },
-    { SCPI_REG_CLASS_COND, SCPI_REG_GROUP_QUES },
+uint8_t stb;
+uint8_t sre;
 
-#if USE_CUSTOM_REGISTERS
-#ifndef USER_REGISTER_DETAILS
-#error "No user register details defined"
-#else
-    USER_REGISTER_DETAILS
-#endif
-#endif
+scpi_subregister_data_t library_subregister_data[3];
 
+// GROUP, PTR_PRESET, NTR_PRESET, ENAB_PRESET, PARENT_REG, PARENT_BIT
+#define LIBRARY_STATUS_REGISTER_GROUPS                    \
+X(SCPI_REG_ESR, 0x0000, 0x0000, 0x0000, SCPI_REG_STB, 5)  \
+X(SCPI_REG_OPER, 0x7FFF, 0x0000, 0x0000, SCPI_REG_STB, 7) \
+X(SCPI_REG_QUES, 0x7FFF, 0x0000, 0x0000, SCPI_REG_STB, 3)
+
+#define X(GROUP, PTR_PRESET, NTR_PRESET, ENAB_PRESET, PARENT_REG, PARENT_BIT)\
+{ \
+    .data = library_subregister_data + GROUP, \
+    .preset = { .ptr = PTR_PRESET, .ntr = NTR_PRESET, .enab = ENAB_PRESET },\
+    .parent = { .reg = PARENT_REG, .bit = PARENT_BIT }\
+},
+
+const scpi_register_group_t library_register_groups[] = {
+    LIBRARY_STATUS_REGISTER_GROUPS
 };
 
-static const scpi_reg_group_info_t scpi_reg_group_details[SCPI_REG_GROUP_COUNT] = {
-    { 
-        SCPI_REG_STB,
-        SCPI_REG_SRE,
-        SCPI_REG_NONE,
-        SCPI_REG_NONE,
-        SCPI_REG_NONE,
-        SCPI_REG_NONE,
-        0
-    }, /* SCPI_REG_GROUP_STB */
-    { 
-        SCPI_REG_ESR,
-        SCPI_REG_ESE,
-        SCPI_REG_NONE,
-        SCPI_REG_NONE,
-        SCPI_REG_NONE,
-        SCPI_REG_STB,
-        STB_ESR
-    }, /* SCPI_REG_GROUP_ESR */
-    { 
-        SCPI_REG_OPER,
-        SCPI_REG_OPERE,
-        SCPI_REG_OPERC,
-        SCPI_REG_NONE,
-        SCPI_REG_NONE,
-        SCPI_REG_STB,
-        STB_OPS
-    }, /* SCPI_REG_GROUP_OPER */
-    { 
-        SCPI_REG_QUES,
-        SCPI_REG_QUESE,
-        SCPI_REG_QUESC,
-        SCPI_REG_NONE,
-        SCPI_REG_NONE,
-        SCPI_REG_STB,
-        STB_QES
-    }, /* SCPI_REG_GROUP_QUES */
+static const scpi_register_group_t * get_register_group(scpi_t * context, uint16_t group) {
+    uint16_t idx;
+    const scpi_register_group_t * register_groups;
 
-#if USE_CUSTOM_REGISTERS
-#ifndef USER_REGISTER_GROUP_DETAILS
-#error "No user register group details defined"
-#else
-    USER_REGISTER_GROUP_DETAILS
-#endif
-#endif
+    if(group < SCPI_LIB_REG_GROUP_COUNT) {
+        register_groups = library_register_groups;
+        idx = group;
+    } else {
+        register_groups = context->user.register_groups.ptr;
+        idx = SCPI_LIB_REG_GROUP_COUNT - group;
+    }
 
-};
+    return register_groups + idx;
+}
+
+static scpi_reg_val_t * get_subregister(scpi_t * context, uint16_t group, uint16_t subreg) {
+    const scpi_register_group_t * target_group = get_register_group(context, group);
+    switch (subreg) {
+        case SCPI_SUBREG_COND:
+            return &(target_group->data->cond);
+        case SCPI_SUBREG_EVENT:
+            return &(target_group->data->event);
+        case SCPI_SUBREG_ENAB:
+            return &(target_group->data->enab);
+        case SCPI_SUBREG_PTR:
+            return &(target_group->data->ptr);
+        case SCPI_SUBREG_NTR:
+            return &(target_group->data->ntr);
+        default:
+            return NULL;
+    }
+}
 
 /**
  * Get register value
  * @param name - register name
  * @return register value
  */
-scpi_reg_val_t SCPI_RegGet(scpi_t * context, scpi_reg_name_t name) {
-    if ((name < SCPI_REG_COUNT) && context) {
-        return context->registers[name];
-    } else {
-        return 0;
+scpi_reg_val_t SCPI_RegGet(scpi_t * context, int16_t group, uint16_t subreg) {
+    if(group >= 0) {
+        scpi_reg_val_t val = *(get_subregister(context, group, subreg));
+        if(subreg == SCPI_SUBREG_EVENT) {
+            SCPI_RegSet(context, group, subreg, 0);
+        }
+
+        return val;
     }
+
+    return 0x8000;
 }
 
 /**
@@ -139,104 +129,137 @@ static size_t writeControl(scpi_t * context, scpi_ctrl_name_t ctrl, scpi_reg_val
     }
 }
 
+static void adjust_stb_bit6(scpi_t * context) {
+    uint8_t stb_no_bit6 = stb & ~STB_SRQ;
+    uint8_t sre_no_bit6 = sre & ~STB_SRQ;
+
+    if((stb_no_bit6 & sre_no_bit6) > 0) {
+        stb = stb | STB_SRQ;
+        writeControl(context, SCPI_CTRL_SRQ, stb);
+    } else {
+        stb = stb & ~STB_SRQ;
+    }
+}
+
 /**
  * Set register value
  * @param name - register name
  * @param val - new value
  */
-void SCPI_RegSet(scpi_t * context, scpi_reg_name_t name, scpi_reg_val_t val) {
-    if ((name >= SCPI_REG_COUNT) || (context == NULL)) {
-        return;
-    }
+void SCPI_RegSet(scpi_t * context, int16_t group, uint16_t subreg, scpi_reg_val_t val) {
+    if(group >= 0) {
+        // Get a pointer to the specific subregister for the short circuiting checks
+        scpi_reg_val_t * subreg_ptr = get_subregister(context, group, subreg);
 
-    scpi_reg_group_info_t register_group;
+        // If the value is unchanged, return immediately
+        if(*subreg_ptr == val) return;
 
-    do {
-        scpi_reg_class_t register_type = scpi_reg_details[name].type;
-        register_group = scpi_reg_group_details[scpi_reg_details[name].group];
+        // If the register group is the ESR and the subregister is not event or enable, return immediately
+        if(group == SCPI_REG_ESR && !(subreg == SCPI_SUBREG_EVENT || subreg == SCPI_SUBREG_ENAB)) return;
 
-        scpi_reg_val_t ptrans;
-
-        /* store old register value */
-        scpi_reg_val_t old_val = context->registers[name];
-
-        if (old_val == val) {
+        // If the subregister is not a condition register or event register, assign the value and return.
+        if(subreg != SCPI_SUBREG_COND && subreg != SCPI_SUBREG_EVENT) {
+            *subreg_ptr = val;
             return;
+        }
+
+        // If the program execution has gotten past this point, then register change propagation will be performed.
+
+        const scpi_register_group_t * parent_register_group;
+        const scpi_register_group_t * working_register_group = get_register_group(context, group);
+        scpi_reg_val_t new_cond_reg_val;
+        scpi_reg_val_t new_event_reg_val;
+        scpi_reg_val_t old_val;
+        uint8_t new_summary_val;
+        scpi_bool_t skip_to_event_reg_logic;
+
+        // If the initial sub-register is a condition register, do not skip the condition register change logic.
+        // Otherwise, if it an event register, then skip the condition register change logic for the first iteration.
+        if(subreg == SCPI_SUBREG_COND) {
+            skip_to_event_reg_logic = false;
+            new_cond_reg_val = val;
         } else {
-            context->registers[name] = val;
+            skip_to_event_reg_logic = true;
+            new_event_reg_val = val;
         }
 
-        switch (register_type) {
-            case SCPI_REG_CLASS_STB:
-            case SCPI_REG_CLASS_SRE:
-            {
-                scpi_reg_val_t stb = context->registers[SCPI_REG_STB] & ~STB_SRQ;
-                scpi_reg_val_t sre = context->registers[SCPI_REG_SRE] & ~STB_SRQ;
+        // Loop for propagating register changes. One register group is changed per iteration.
+        do {
+            scpi_subregister_data_t * working_reg_data = working_register_group->data;
+            // Condition Register Change Logic
+            if(!skip_to_event_reg_logic) {
+                // Store the old condition register value
+                old_val = working_reg_data->cond;
 
-                if (stb & sre) {
-                    ptrans = ((old_val ^ val) & val);
-                    context->registers[SCPI_REG_STB] |= STB_SRQ;
-                    if (ptrans & val) {
-                        writeControl(context, SCPI_CTRL_SRQ, context->registers[SCPI_REG_STB]);
-                    }
-                } else {
-                    context->registers[SCPI_REG_STB] &= ~STB_SRQ;
-                }
-                break;
+                // Assign the new condition register value
+                working_reg_data->cond = new_cond_reg_val;
+
+                // Calculate the positive and negative bit transitions
+                uint16_t transitions = old_val ^ new_cond_reg_val;
+                uint16_t ptrans = transitions & new_cond_reg_val;
+                uint16_t ntrans = transitions & ~ptrans;
+
+                // Calculate the new event register value
+                new_event_reg_val = ((ptrans & working_reg_data->ptr) | (ntrans & working_reg_data->ntr)) | working_reg_data->event;
             }
-            case SCPI_REG_CLASS_EVEN:
+
+            // Event Register Logic
             {
-                scpi_reg_val_t enable;
-                if(register_group.enable != SCPI_REG_NONE) {
-                    enable = SCPI_RegGet(context, register_group.enable);
-                } else {
-                    enable = 0xFFFF;
-                }
+                // Store the old event register value
+                old_val = working_reg_data->event;
 
-                scpi_bool_t summary = val & enable;
+                // If the new event register value is identical to the old event register value, stop the propagation and return
+                if(old_val == new_event_reg_val) return;
 
-                name = register_group.parent_reg;
-                val = SCPI_RegGet(context, register_group.parent_reg);
-                if (summary) {
-                    val |= register_group.parent_bit;
-                } else {
-                    val &= ~(register_group.parent_bit);
-                }
-                break;
+                // Assign the new event register value
+                working_reg_data->event = new_event_reg_val;
+
+                // Calculate the new summary bit value of the parent register
+                new_summary_val = (working_reg_data->event & working_reg_data->enab) > 0;
             }
-            case SCPI_REG_CLASS_COND:
+
+            // Summary Bit Logic
             {
-                name = register_group.event;
+                // If the parent register group is the STB, exit the loop
+                if(working_register_group->parent.reg == SCPI_REG_STB) break;
 
-                if(register_group.ptfilt == SCPI_REG_NONE && register_group.ntfilt == SCPI_REG_NONE) {
-                    val = ((old_val ^ val) & val) | SCPI_RegGet(context, register_group.event);
+                // Get the parent register group
+                parent_register_group = get_register_group(context, working_register_group->parent.reg);
+
+                // Store the old bit summary value
+                old_val = (parent_register_group->data->cond & (1 << working_register_group->parent.bit)) > 0;
+
+                // If the new summary value is identical to the old summary value, stop the propagation and return
+                if(old_val == new_summary_val) return;
+
+                // Calculate the new value of the condition register value in the parent register group
+                if(new_summary_val > 0) {
+                    new_cond_reg_val = parent_register_group->data->cond | (1 << working_register_group->parent.bit);
                 } else {
-                    scpi_reg_val_t ptfilt = 0, ntfilt = 0;
-                    scpi_reg_val_t transitions;
-                    scpi_reg_val_t ntrans;
-
-                    if(register_group.ptfilt != SCPI_REG_NONE) {
-                        ptfilt = SCPI_RegGet(context, register_group.ptfilt);
-                    }
-
-                    if(register_group.ntfilt != SCPI_REG_NONE) {
-                        ntfilt = SCPI_RegGet(context, register_group.ntfilt);
-                    }
-
-                    transitions = old_val ^ val;
-                    ptrans = transitions & val;
-                    ntrans = transitions & ~ptrans;
-
-                    val = ((ptrans & ptfilt) | (ntrans & ntfilt)) | SCPI_RegGet(context, register_group.event);
+                    new_cond_reg_val = parent_register_group->data->cond & ~(1 << working_register_group->parent.bit);
                 }
-                break;
+
+                // Set the parent of the current working register group as the new working register group
+                working_register_group = parent_register_group;
+
+                // Ensure that the condition register will not be skipped in the next iteration
+                skip_to_event_reg_logic = false;
             }
-            case SCPI_REG_CLASS_ENAB:
-            case SCPI_REG_CLASS_NTR:
-            case SCPI_REG_CLASS_PTR:
-                return;
+        } while(true);
+
+        // If the program execution has reached this point then the only register left to update is the STB
+        if(new_summary_val > 0) {
+            stb = stb | (1 << working_register_group->parent.bit);
+        } else {
+            stb = stb & ~(1 << working_register_group->parent.bit);
         }
-    } while(register_group.parent_reg != SCPI_REG_NONE);
+
+        // Adjust bit 6 of the STB depending on the value of the STB and SRE
+        adjust_stb_bit6(context);
+    } else if(group == SCPI_REG_SRE) {
+        sre = val;
+        adjust_stb_bit6(context);
+    }
 }
 
 /**
@@ -244,8 +267,26 @@ void SCPI_RegSet(scpi_t * context, scpi_reg_name_t name, scpi_reg_val_t val) {
  * @param name - register name
  * @param bits bit mask
  */
-void SCPI_RegSetBits(scpi_t * context, scpi_reg_name_t name, scpi_reg_val_t bits) {
-    SCPI_RegSet(context, name, SCPI_RegGet(context, name) | bits);
+void SCPI_RegSetBits(scpi_t * context, int16_t group, uint16_t subreg, scpi_reg_val_t bits) {
+    if(group == SCPI_REG_STB) {
+        // Bits 0 and 1 in the STB are the only bits allowed to be set using this function
+        // All of the other bits in the STB have pre-defined roles according to the SCPI standard
+        //
+        // If downstream projects assign bits 0 or 1 to the status of a queue or register,
+        // then it is the responsibility of the downstream project developer to ensure that
+        // this function is not used to set those downstream assigned bits.
+        if(bits & STB_R01) stb |= STB_R01;
+        if(bits & STB_PRO) stb |= STB_PRO;
+        adjust_stb_bit6(context);
+    }else if(group == SCPI_REG_SRE) {
+        sre |= bits;
+        adjust_stb_bit6(context);
+    } else {
+        scpi_reg_val_t reg_val = *(get_subregister(context, group, subreg));
+        reg_val |= bits;
+        SCPI_RegSet(context, group, subreg, reg_val);
+    }
+//    SCPI_RegSet(context, name, SCPI_RegGet(context, name) | bits);
 }
 
 /**
@@ -253,8 +294,25 @@ void SCPI_RegSetBits(scpi_t * context, scpi_reg_name_t name, scpi_reg_val_t bits
  * @param name - register name
  * @param bits bit mask
  */
-void SCPI_RegClearBits(scpi_t * context, scpi_reg_name_t name, scpi_reg_val_t bits) {
-    SCPI_RegSet(context, name, SCPI_RegGet(context, name) & ~bits);
+void SCPI_RegClearBits(scpi_t * context, int16_t group, uint16_t subreg, scpi_reg_val_t bits) {
+    if(group == SCPI_REG_STB) {
+        // Bits 0 and 1 in the STB are the only bits allowed to be clear using this function
+        // All of the other bits in the STB have pre-defined roles according to the SCPI standard
+        //
+        // If downstream projects assign bits 0 or 1 to the status of a queue or register,
+        // then it is the responsibility of the downstream project developer to ensure that
+        // this function is not used to clear those downstream assigned bits.
+        if(bits & STB_R01) stb &= ~(STB_R01);
+        if(bits & STB_PRO) stb &= ~(STB_PRO);
+        adjust_stb_bit6(context);
+    }else if(group == SCPI_REG_SRE) {
+        sre &= ~bits;
+        adjust_stb_bit6(context);
+    } else {
+        scpi_reg_val_t reg_val = *(get_subregister(context, group, subreg));
+        reg_val &= ~bits;
+        SCPI_RegSet(context, group, subreg, reg_val);
+    }
 }
 
 /**
@@ -265,12 +323,11 @@ void SCPI_RegClearBits(scpi_t * context, scpi_reg_name_t name, scpi_reg_val_t bi
  */
 scpi_result_t SCPI_CoreCls(scpi_t * context) {
     SCPI_ErrorClear(context);
+    stb = 0;
     int i;
-    for (i = 0; i < SCPI_REG_GROUP_COUNT; ++i) {
-        scpi_reg_name_t event_reg = scpi_reg_group_details[i].event;
-        if (event_reg != SCPI_REG_STB) {
-            SCPI_RegSet(context, event_reg, 0);
-        }
+    for (i = 0; i < SCPI_LIB_REG_GROUP_COUNT + context->user.register_groups.len; ++i) {
+        scpi_reg_val_t * event_reg = get_subregister(context, i, SCPI_SUBREG_EVENT);
+        *event_reg = 0;
     }
     return SCPI_RES_OK;
 }
@@ -283,7 +340,7 @@ scpi_result_t SCPI_CoreCls(scpi_t * context) {
 scpi_result_t SCPI_CoreEse(scpi_t * context) {
     int32_t new_ESE;
     if (SCPI_ParamInt32(context, &new_ESE, TRUE)) {
-        SCPI_RegSet(context, SCPI_REG_ESE, (scpi_reg_val_t) new_ESE);
+        SCPI_RegSet(context, SCPI_REG_ESR, SCPI_SUBREG_ENAB, (scpi_reg_val_t) new_ESE);
         return SCPI_RES_OK;
     }
     return SCPI_RES_ERR;
@@ -295,7 +352,7 @@ scpi_result_t SCPI_CoreEse(scpi_t * context) {
  * @return 
  */
 scpi_result_t SCPI_CoreEseQ(scpi_t * context) {
-    SCPI_ResultInt32(context, SCPI_RegGet(context, SCPI_REG_ESE));
+    SCPI_ResultInt32(context, SCPI_RegGet(context, SCPI_REG_ESR, SCPI_SUBREG_ENAB));
     return SCPI_RES_OK;
 }
 
@@ -305,8 +362,8 @@ scpi_result_t SCPI_CoreEseQ(scpi_t * context) {
  * @return 
  */
 scpi_result_t SCPI_CoreEsrQ(scpi_t * context) {
-    SCPI_ResultInt32(context, SCPI_RegGet(context, SCPI_REG_ESR));
-    SCPI_RegSet(context, SCPI_REG_ESR, 0);
+    SCPI_ResultInt32(context, SCPI_RegGet(context, SCPI_REG_ESR, SCPI_SUBREG_EVENT));
+    SCPI_RegSet(context, SCPI_REG_ESR, SCPI_SUBREG_EVENT, 0);
     return SCPI_RES_OK;
 }
 
@@ -339,7 +396,7 @@ scpi_result_t SCPI_CoreIdnQ(scpi_t * context) {
  * @return 
  */
 scpi_result_t SCPI_CoreOpc(scpi_t * context) {
-    SCPI_RegSetBits(context, SCPI_REG_ESR, ESR_OPC);
+    SCPI_RegSetBits(context, SCPI_REG_ESR, SCPI_SUBREG_EVENT, ESR_OPC);
     return SCPI_RES_OK;
 }
 
@@ -374,7 +431,8 @@ scpi_result_t SCPI_CoreRst(scpi_t * context) {
 scpi_result_t SCPI_CoreSre(scpi_t * context) {
     int32_t new_SRE;
     if (SCPI_ParamInt32(context, &new_SRE, TRUE)) {
-        SCPI_RegSet(context, SCPI_REG_SRE, (scpi_reg_val_t) new_SRE);
+        sre = new_SRE;
+        adjust_stb_bit6(context);
         return SCPI_RES_OK;
     }
     return SCPI_RES_ERR;
@@ -386,7 +444,7 @@ scpi_result_t SCPI_CoreSre(scpi_t * context) {
  * @return 
  */
 scpi_result_t SCPI_CoreSreQ(scpi_t * context) {
-    SCPI_ResultInt32(context, SCPI_RegGet(context, SCPI_REG_SRE));
+    SCPI_ResultInt32(context, sre);
     return SCPI_RES_OK;
 }
 
@@ -396,7 +454,7 @@ scpi_result_t SCPI_CoreSreQ(scpi_t * context) {
  * @return 
  */
 scpi_result_t SCPI_CoreStbQ(scpi_t * context) {
-    SCPI_ResultInt32(context, SCPI_RegGet(context, SCPI_REG_STB));
+    SCPI_ResultInt32(context, stb);
     return SCPI_RES_OK;
 }
 

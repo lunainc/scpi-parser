@@ -61,8 +61,8 @@ void SCPI_ErrorInit(scpi_t * context, scpi_error_t * data, int16_t size) {
  * @param context scpi context
  */
 static void SCPI_ErrorEmitEmpty(scpi_t * context) {
-    if ((SCPI_ErrorCount(context) == 0) && (SCPI_RegGet(context, SCPI_REG_STB) & STB_QMA)) {
-        SCPI_RegClearBits(context, SCPI_REG_STB, STB_QMA);
+    if ((SCPI_ErrorCount(context) == 0) && (SCPI_RegGet(context, SCPI_REG_STB, 0) & STB_QMA)) {
+        SCPI_RegClearBits(context, SCPI_REG_STB, 0, STB_QMA);
 
         if (context->interface && context->interface->error) {
             context->interface->error(context, 0);
@@ -76,7 +76,7 @@ static void SCPI_ErrorEmitEmpty(scpi_t * context) {
  * @param err Error to emit
  */
 static void SCPI_ErrorEmit(scpi_t * context, int16_t err) {
-    SCPI_RegSetBits(context, SCPI_REG_STB, STB_QMA);
+    SCPI_RegSetBits(context, SCPI_REG_STB, 0, STB_QMA);
 
     if (context->interface && context->interface->error) {
         context->interface->error(context, err);
@@ -186,7 +186,7 @@ void SCPI_ErrorPushEx(scpi_t * context, int16_t err, char * info, size_t info_le
 
     for (i = 0; i < ERROR_DEFS_N; i++) {
         if ((err <= errs[i].from) && (err >= errs[i].to)) {
-            SCPI_RegSetBits(context, SCPI_REG_ESR, errs[i].esrBit);
+            SCPI_RegSetBits(context, SCPI_REG_ESR, SCPI_SUBREG_EVENT, errs[i].esrBit);
         }
     }
 

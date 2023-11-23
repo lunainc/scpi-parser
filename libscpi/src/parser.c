@@ -45,6 +45,7 @@
 #include "scpi/error.h"
 #include "scpi/constants.h"
 #include "scpi/utils.h"
+#include "scpi/minimal.h"
 
 /**
  * Write data to SCPI output
@@ -273,6 +274,7 @@ void SCPI_Init(scpi_t * context,
         const scpi_unit_def_t * units,
         const char * idn1, const char * idn2, const char * idn3, const char * idn4,
         char * input_buffer, size_t input_buffer_length,
+        const scpi_register_group_t * user_registers_list, uint16_t user_registers_list_len,
         const scpi_error_def_t * user_error_def_list, uint16_t user_error_def_list_len, scpi_error_t * error_queue_data, int16_t error_queue_size) {
     memset(context, 0, sizeof (*context));
     context->cmdlist = commands;
@@ -285,9 +287,12 @@ void SCPI_Init(scpi_t * context,
     context->buffer.data = input_buffer;
     context->buffer.length = input_buffer_length;
     context->buffer.position = 0;
+    context->user.register_groups.ptr = user_registers_list;
+    context->user.register_groups.len = user_registers_list_len;
     context->user.error_info_list.ptr = user_error_def_list;
     context->user.error_info_list.len = user_error_def_list_len;
     SCPI_ErrorInit(context, error_queue_data, error_queue_size);
+    SCPI_StatusPreset(context);
 }
 
 #if USE_DEVICE_DEPENDENT_ERROR_INFORMATION && !USE_MEMORY_ALLOCATION_FREE
