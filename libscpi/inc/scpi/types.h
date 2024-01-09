@@ -327,6 +327,7 @@ extern "C" {
         SCPI_UNIT_DEGREE,
         SCPI_UNIT_GRADE,
         SCPI_UNIT_RADIAN,
+        SCPI_UNIT_PI,
         SCPI_UNIT_REVOLUTION,
         SCPI_UNIT_STERADIAN,
         SCPI_UNIT_SIEVERT,

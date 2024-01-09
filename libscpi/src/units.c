@@ -35,6 +35,7 @@
  *
  */
 
+#include <math.h>
 #include <string.h>
 #include "scpi/parser.h"
 #include "scpi/units.h"
@@ -102,6 +103,7 @@ const scpi_unit_def_t scpi_units_def[] = {
     {/* name */ "SEC", /* unit */ SCPI_UNIT_DEGREE, /* mult */ 1. / 3600.},
     {/* name */ "REV", /* unit */ SCPI_UNIT_REVOLUTION, /* mult */ 1},
     {/* name */ "RS", /* unit */ SCPI_UNIT_STERADIAN, /* mult */ 1},
+    {/* name */ "PI", /* unit */ SCPI_UNIT_RADIAN, /* mult */ M_PI},
 #endif /* USE_UNITS_ANGLE */
 
 #if USE_UNITS_ELECTRIC

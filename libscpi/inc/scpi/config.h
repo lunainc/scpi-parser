@@ -52,6 +52,7 @@ extern "C" {
 #define USE_DEVICE_DEPENDENT_ERROR_INFORMATION 1
 #define USE_MEMORY_ALLOCATION_FREE 0
 #define USE_UNITS_TIME 1
+#define USE_UNITS_ANGLE 1
 
 /* set the termination character(s)   */
 #define LINE_ENDING_CR          "\r"    /*   use a <CR> carriage return as termination charcter */
