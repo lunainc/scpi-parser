@@ -141,7 +141,7 @@ extern "C" {
 #endif
 
 #ifndef USE_UNITS_DISTANCE
-#define USE_UNITS_DISTANCE SYSTEM_TYPE
+#define USE_UNITS_DISTANCE 1
 #endif
 
 #ifndef USE_UNITS_MAGNETIC
